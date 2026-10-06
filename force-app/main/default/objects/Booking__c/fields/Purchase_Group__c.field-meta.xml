@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Purchase_Group__c</fullName>
+    <label>Purchase Group</label>
+    <type>Lookup</type>
+    <referenceTo>Purchase_Group__c</referenceTo>
+    <relationshipName>Bookings</relationshipName>
+    <relationshipLabel>Bookings</relationshipLabel>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <required>false</required>
+</CustomField>
