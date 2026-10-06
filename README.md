@@ -2,7 +2,7 @@
 
 Automatizaciones **Apex** para la operativa de reservas de una agencia de turismo que vende entradas a monumentos a través de varias plataformas: Regiondo, FareHarbor, Turitop y venta directa.
 
-Son seis piezas independientes, extraídas de un CRM en producción y **reescritas para su publicación**. Cada una explica qué problema real tenía la versión original y cómo se ha resuelto.
+Son siete piezas independientes, extraídas de un CRM en producción y **reescritas para su publicación**. Cada una explica qué problema real tenía la versión original y cómo se ha resuelto.
 
 ![apex](https://img.shields.io/badge/Apex-API%2062-00A1E0) ![lint](https://img.shields.io/badge/prettier--plugin--apex-checked-informational) ![license](https://img.shields.io/badge/license-MIT-blue)
 
@@ -13,6 +13,7 @@ Son seis piezas independientes, extraídas de un CRM en producción y **reescrit
 | [Migración de ficheros](#3-migración-de-ficheros-a-tickets) | Batch | Mueve las entradas adjuntas de las reservas a su `Ticket__c`, sin duplicar almacenamiento. |
 | [Agrupación de compras](#4-agrupación-de-compras) | Trigger + servicio | Agrupa las reservas que se pueden comprar juntas al proveedor (mismo producto, ventana de N minutos, máximo por grupo) y avisa cuando un grupo está listo. |
 | [Webhook de reservas OCTO](#6-webhook-de-reservas-octo-ventrata-bókun) | REST entrante | Recibe altas, cambios y cancelaciones de las plataformas que usan el estándar OCTO (Ventrata, Bókun…). Es idempotente y tolera eventos fuera de orden. |
+| [Reservas de Viator por email](#7-reservas-de-viator-por-email) | Email Service | Convierte los emails de reserva de Viator (en inglés y en español) en reservas. Es idempotente y nunca pierde un email. |
 | [Turnos en el punto de encuentro](#5-turnos-en-el-punto-de-encuentro) | Servicio `@AuraEnabled` | Tótem de bienvenida y panel del personal: turnos por área sin números duplicados aunque haya varios tótems. |
 
 ## 1. Conciliación diaria de ventas
@@ -111,6 +112,21 @@ Los métodos son `@AuraEnabled` y se pueden usar desde un LWC o una página de E
 
 **Respecto al borrador original:** el borrador tenía el secreto escrito en el código (`'secreto_compartido'`) y comparaba cadenas. Usaba `DateTime.valueOfGmt` con fechas ISO 8601 (`…T10:30:00Z`), que **lanza una excepción con cualquier evento real**. Además, los mapas de productos y estados estaban fijados en el código, y el upsert se hacía por `resellerReference`, que puede venir vacío.
 
+## 7. Reservas de Viator por email
+
+[`ViatorEmailParser`](force-app/main/default/classes/ViatorEmailParser.cls) (puro) + [`ViatorEmailHandler`](force-app/main/default/classes/ViatorEmailHandler.cls) (`Messaging.InboundEmailHandler`)
+
+Viator no ofrece webhook a todos los operadores: cada reserva llega por email. El servicio de email lo convierte en un `Booking__c` con una entrada por viajero.
+
+- **Bilingüe**: etiquetas y fechas en inglés (`Thu, Oct 15, 2026`) y en español (`jue., 15 oct. 2026`). Importes en formato europeo y anglosajón.
+- **Idempotente**: hace upsert por localizador. Si llega una solicitud y después la confirmación, se actualiza la misma reserva, y los reenvíos no duplican ni la reserva ni las entradas.
+- **Nunca pierde un email**: lo que no se puede procesar queda en `Webhook_Event__c` con el motivo y el contenido.
+
+**Respecto al original:**
+- en los emails en español, los nombres de los viajeros se leían desde la etiqueta del viajero principal, y los meses en español no se reconocían, así que la reserva se quedaba sin fecha;
+- sin tarifa en el email, `Decimal.valueOf(null)` lanzaba una excepción y la reserva se perdía sin rastro;
+- la cola estaba fijada en el código.
+
 ## Modelo de datos
 
 ```
@@ -136,6 +152,7 @@ Cada clase tiene su test, con mocks HTTP y datos masivos:
 - El enrutado se prueba con 102 casos para verificar el número constante de consultas, junto con el caso sin regla y el caso sin reserva.
 - La agrupación de compras cubre la ventana, la capacidad, el orden de llegada, la cancelación que reabre el grupo, los grupos comprados congelados, 200 reservas con consultas constantes y el escapado del CSV.
 - El webhook OCTO cubre la creación con fechas ISO 8601, la prioridad del mapeo por opción, la idempotencia, la cancelación, los eventos fuera de orden, el secreto incorrecto o ausente, los errores de JSON y de estado, los eventos ignorados y el producto sin mapear.
+- Viator cubre el email en inglés, el email HTML en español, los importes en los dos formatos, la idempotencia, la solicitud seguida de confirmación, los emails que no son reservas y el producto sin mapear.
 - Los turnos cubren la numeración por área, la idempotencia, el orden de llamada y la cola vacía.
 - La migración comprueba que los ficheros se mueven y no se copian, y que no se tocan las reservas pasadas, las de otros productos ni las que no tienen ticket.
 

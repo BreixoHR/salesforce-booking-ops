@@ -5,6 +5,9 @@ Cada módulo de este repositorio es la reescritura (2026-10) de un desarrollo qu
 ## Reescritura pública · 2026-10-05 → 2026-10-06
 - Los seis módulos con Custom Metadata en lugar de valores fijados en el código, operaciones bulk-safe, tests Apex y lint en CI.
 
+## Reservas de Viator por email · 2025-05-26
+- `InboundEmailHandler` que crea las reservas de Viator a partir de los emails de confirmación y de solicitud. Reescrito en 2026-10 (versión bilingüe e idempotente).
+
 ## Webhook OCTO (Ventrata) · 2026-03-08 → 2026-07-23
 | Fecha | Cambio |
 |---|---|
